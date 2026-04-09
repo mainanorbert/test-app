@@ -1,11 +1,15 @@
 """FastAPI dependencies for settings and API clients."""
 
+from collections.abc import Generator
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status
 from openai import OpenAI
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.db import session as db_session
+from app.db.session import ensure_db_initialized
 
 
 @lru_cache
@@ -45,3 +49,25 @@ def get_openai_client(settings: Settings = Depends(get_settings)) -> OpenAI:
             "X-Title": settings.openrouter_x_title,
         },
     )
+
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    Yield a database session for request-scoped work.
+
+    Yields:
+        An open SQLAlchemy session.
+
+    Raises:
+        HTTPException: When the database is not configured (no engine).
+    """
+    if not ensure_db_initialized() or db_session.SessionLocal is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+    db = db_session.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

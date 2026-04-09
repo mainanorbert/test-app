@@ -1,0 +1,38 @@
+# Postgres data keeps old users/passwords across restarts. If you change credentials below,
+# reset the volume: docker compose down -v && docker compose up --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: ideas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Must match POSTGRES_USER / POSTGRES_DB (do not hardcode a different role)
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Always set here (do not rely on container env_file) so host .env cannot clear DATABASE_URL.
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/ideas
+      # Docker Compose reads the project .env for ${...} substitution only (not merged as env_file).
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-https://localhost}
+      OPENROUTER_X_TITLE: ${OPENROUTER_X_TITLE:-Business Ideas API}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -19,6 +19,21 @@ class BusinessIdeaRequest(BaseModel):
     )
 
 
+class IdeaRecordItem(BaseModel):
+    """
+    One saved generation returned to the client (topic + content only).
+
+    Attributes:
+        id: Row id for list keys.
+        topic: Stored topic.
+        content: Stored markdown output.
+    """
+
+    id: int = Field(..., description="Database primary key.")
+    topic: str = Field(..., description="User topic.")
+    content: str = Field(..., description="Generated markdown.")
+
+
 class BusinessIdeaResponse(BaseModel):
     """
     Non-streaming completion wrapping the full model output.

@@ -1,16 +1,22 @@
 """Business idea generation routes (OpenRouter / OpenAI-compatible)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.deps import get_openai_client, get_settings
-from app.schemas.business import BusinessIdeaRequest, BusinessIdeaResponse
+from app.core.deps import get_db, get_openai_client, get_settings
+from app.schemas.business import (
+    BusinessIdeaRequest,
+    BusinessIdeaResponse,
+    IdeaRecordItem,
+)
 from app.services.business_ideas import (
     generate_business_ideas_content,
     iter_business_ideas_sse,
 )
+from app.services.idea_records import list_idea_records, persist_idea_record_if_configured
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 
@@ -33,7 +39,29 @@ def create_business_ideas(
         A response object containing the complete assistant text.
     """
     content = generate_business_ideas_content(client, settings, body)
+    persist_idea_record_if_configured(settings, body.topic.strip(), content)
     return BusinessIdeaResponse(content=content)
+
+
+@router.get("/records", response_model=list[IdeaRecordItem])
+def list_saved_ideas(
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+) -> list[IdeaRecordItem]:
+    """
+    List saved topic/content pairs, newest first.
+
+    Args:
+        db: Database session.
+        limit: Max rows (capped for safety).
+
+    Returns:
+        List of ``IdeaRecordItem`` without extra fields.
+    """
+    rows = list_idea_records(db, limit=limit)
+    return [
+        IdeaRecordItem(id=r.id, topic=r.topic, content=r.content) for r in rows
+    ]
 
 
 @router.post("/stream")

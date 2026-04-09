@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from app.core.config import Settings
 from app.schemas.business import BusinessIdeaRequest
+from app.services.idea_records import persist_idea_record_if_configured
 
 SYSTEM_PROMPT = """
 You are a concise business strategist. The user describes a focus area or problem.
@@ -87,9 +88,13 @@ def iter_business_ideas_sse(
     Yields:
         UTF-8 text chunks forming a valid ``text/event-stream`` response.
     """
+    accumulated: list[str] = []
     for fragment in iter_business_ideas_stream(client, settings, request):
+        accumulated.append(fragment)
         yield f"data: {json.dumps(fragment)}\n\n"
     yield "data: [DONE]\n\n"
+    full_text = "".join(accumulated)
+    persist_idea_record_if_configured(settings, request.topic.strip(), full_text)
 
 
 def generate_business_ideas_content(
