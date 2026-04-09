@@ -1,5 +1,6 @@
 """LLM-backed generation of business ideas via OpenRouter (OpenAI-compatible API)."""
 
+import json
 from collections.abc import Iterator
 
 from openai import OpenAI
@@ -11,7 +12,7 @@ SYSTEM_PROMPT = """
 You are a concise business strategist. The user describes a focus area or problem.
 Generate practical business ideas: name each idea, one-line value proposition,
 target customer, and one concrete next step. Use markdown with clear headings
-and bullet lists. Stay specific and avoid generic fluff.
+and bullet lists. Stay specific and avoid generic fluff. be brief and to the point.
 """
 
 
@@ -65,6 +66,30 @@ def iter_business_ideas_stream(
         choice = chunk.choices[0]
         if choice.delta.content:
             yield choice.delta.content
+
+
+def iter_business_ideas_sse(
+    client: OpenAI,
+    settings: Settings,
+    request: BusinessIdeaRequest,
+) -> Iterator[str]:
+    """
+    Stream model deltas as Server-Sent Events (``data:`` JSON string lines + ``[DONE]``).
+
+    Each event body is a JSON-encoded string fragment from the model so newlines and
+    quotes are safe. The stream ends with a literal ``data: [DONE]`` event.
+
+    Args:
+        client: OpenAI-compatible API client (e.g. OpenRouter).
+        settings: App settings including model id.
+        request: Ideation brief from the client.
+
+    Yields:
+        UTF-8 text chunks forming a valid ``text/event-stream`` response.
+    """
+    for fragment in iter_business_ideas_stream(client, settings, request):
+        yield f"data: {json.dumps(fragment)}\n\n"
+    yield "data: [DONE]\n\n"
 
 
 def generate_business_ideas_content(

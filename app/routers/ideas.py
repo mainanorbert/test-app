@@ -9,7 +9,7 @@ from app.core.deps import get_openai_client, get_settings
 from app.schemas.business import BusinessIdeaRequest, BusinessIdeaResponse
 from app.services.business_ideas import (
     generate_business_ideas_content,
-    iter_business_ideas_stream,
+    iter_business_ideas_sse,
 )
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
@@ -37,13 +37,16 @@ def create_business_ideas(
 
 
 @router.post("/stream")
-def stream_business_ideas(
+def stream_business_ideas_sse(
     body: BusinessIdeaRequest,
     client: OpenAI = Depends(get_openai_client),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     """
-    Stream business-idea text as incremental plain-text chunks.
+    Stream business-idea text over Server-Sent Events (``text/event-stream``).
+
+    Each ``data:`` line carries a JSON-encoded string delta; the stream ends with
+    ``data: [DONE]``.
 
     Args:
         body: Topic and optional context for ideation.
@@ -51,9 +54,14 @@ def stream_business_ideas(
         settings: Injected application settings.
 
     Returns:
-        A streaming plain-text HTTP response.
+        An SSE streaming HTTP response.
     """
     return StreamingResponse(
-        iter_business_ideas_stream(client, settings, body),
-        media_type="text/plain; charset=utf-8",
+        iter_business_ideas_sse(client, settings, body),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

@@ -139,10 +139,16 @@ cython_debug/
 # Other
 *.log
 
-# Ignore everything in the root except app, main.py, requirements.txt, Dockerfile, and .gitignore
+# Ignore everything in the root except listed paths
 /*
 !/app/
+!/frontend/
 !/main.py
 !/requirements.txt
 !/Dockerfile
+!/.dockerignore
 !/.gitignore
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/
