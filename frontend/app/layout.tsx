@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Business ideas",
-  description: "Generate business ideas with your FastAPI + OpenRouter backend",
+  title: "Career Beacon — Norbert",
+  description:
+    "Chat with Career Beacon about Norbert’s experience, skills, and background.",
 };
 
 export default function RootLayout({
